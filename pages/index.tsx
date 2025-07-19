@@ -1,25 +1,27 @@
 import React, { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 
-// Only use dynamic for React components
-const Webcam = dynamic(() => import("react-webcam"), { ssr: false });
+// Fix the dynamic import for react-webcam
+const Webcam = dynamic(() => import("react-webcam").then(mod => ({ default: mod.default })), { 
+  ssr: false 
+});
 
 export default function Home() {
-  const webcamRef = useRef(null);
-  const canvasRef = useRef(null);
-  const [finalScore, setFinalScore] = useState(null);
+  const webcamRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [finalScore, setFinalScore] = useState<number | null>(null);
   const [interviewActive, setInterviewActive] = useState(false);
   const [modelsLoaded, setModelsLoaded] = useState(false);
-  const [error, setError] = useState(null);
-  const [debugInfo, setDebugInfo] = useState([]);
+  const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string[]>([]);
   const [webcamReady, setWebcamReady] = useState(false);
-  const scores = useRef([]);
-  const intervalRef = useRef(null);
-  const timeoutRef = useRef(null);
-  const faceAPIRef = useRef(null); // Store the imported faceAPI
+  const scores = useRef<number[]>([]);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const faceAPIRef = useRef<any>(null); // Store the imported faceAPI
   const INTERVIEW_DURATION_MS = 60000;
 
-  const addDebugInfo = (message) => {
+  const addDebugInfo = (message: string) => {
     console.log("DEBUG:", message);
     setDebugInfo(prev => [...prev.slice(-9), `${new Date().toLocaleTimeString()}: ${message}`]);
   };
@@ -53,7 +55,7 @@ export default function Home() {
         setModelsLoaded(true);
         addDebugInfo("✅ All models loaded successfully - ready for face detection");
         
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error loading models:", err);
         setError(`Failed to load face detection models: ${err.message}`);
         addDebugInfo(`❌ Model loading failed: ${err.message}`);
@@ -90,7 +92,7 @@ export default function Home() {
         
         // Wait for video to be ready, then start everything
         const waitForVideo = () => {
-          return new Promise((resolve) => {
+          return new Promise<void>((resolve) => {
             const checkVideo = () => {
               if (webcamRef.current && 
                   webcamRef.current.readyState === 4 && 
@@ -128,7 +130,7 @@ export default function Home() {
         }, INTERVIEW_DURATION_MS);
       }
       
-    } catch (err) {
+    } catch (err: any) {
       console.error("Webcam error:", err);
       setError(`Failed to access webcam: ${err.message}`);
       addDebugInfo(`❌ Webcam error: ${err.message}`);
@@ -141,8 +143,8 @@ export default function Home() {
     
     // Clear interval using custom cleanup if available
     if (intervalRef.current) {
-      if (intervalRef.cleanup) {
-        intervalRef.cleanup();
+      if ((intervalRef as any).cleanup) {
+        (intervalRef as any).cleanup();
       } else {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -168,7 +170,7 @@ export default function Home() {
     
     // Stop webcam
     if (webcamRef.current && webcamRef.current.srcObject) {
-      const stream = webcamRef.current.srcObject;
+      const stream = webcamRef.current.srcObject as MediaStream;
       stream.getTracks().forEach(track => track.stop());
       webcamRef.current.srcObject = null;
     }
@@ -226,10 +228,10 @@ export default function Home() {
             { inputSize: 224, scoreThreshold: 0.2 }
           ];
           
-          let detections = null;
-          let faceDetection = null;
-          let expressions = null;
-          let landmarks = null;
+          let detections: any = null;
+          let faceDetection: any = null;
+          let expressions: any = null;
+          let landmarks: any = null;
           
           for (let i = 0; i < detectionOptions.length && !detections; i++) {
             const options = detectionOptions[i];
@@ -257,7 +259,7 @@ export default function Home() {
                 } else {
                   addDebugInfo("❌ No expressions detected");
                 }
-              } catch (expErr) {
+              } catch (expErr: any) {
                 addDebugInfo(`❌ Expression detection failed: ${expErr.message}`);
               }
               
@@ -269,7 +271,7 @@ export default function Home() {
                 } else {
                   addDebugInfo("❌ No landmarks detected");
                 }
-              } catch (landErr) {
+              } catch (landErr: any) {
                 addDebugInfo(`❌ Landmark detection failed: ${landErr.message}`);
               }
               
@@ -282,7 +284,7 @@ export default function Home() {
               
               break;
               
-            } catch (err) {
+            } catch (err: any) {
               addDebugInfo(`Detection attempt ${i + 1} failed: ${err.message}`);
             }
           }
@@ -299,20 +301,22 @@ export default function Home() {
               faceAPI.matchDimensions(canvas, displaySize);
               
               const ctx = canvas.getContext("2d");
-              ctx.clearRect(0, 0, canvas.width, canvas.height);
-              
-              // Draw face box
-              const box = detections.detection.box;
-              ctx.strokeStyle = '#00ff00';
-              ctx.lineWidth = 2;
-              ctx.strokeRect(box.x, box.y, box.width, box.height);
-              
-              // Draw confidence score
-              ctx.fillStyle = '#00ff00';
-              ctx.font = '16px Arial';
-              ctx.fillText(`${(detections.detection.score * 100).toFixed(1)}%`, box.x, box.y - 5);
-              
-              addDebugInfo("✅ Drew detection overlay");
+              if (ctx) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw face box
+                const box = detections.detection.box;
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(box.x, box.y, box.width, box.height);
+                
+                // Draw confidence score
+                ctx.fillStyle = '#00ff00';
+                ctx.font = '16px Arial';
+                ctx.fillText(`${(detections.detection.score * 100).toFixed(1)}%`, box.x, box.y - 5);
+                
+                addDebugInfo("✅ Drew detection overlay");
+              }
             }
           } else {
             addDebugInfo("❌ No face detected with any settings");
@@ -321,10 +325,12 @@ export default function Home() {
             const canvas = canvasRef.current;
             if (canvas) {
               const ctx = canvas.getContext("2d");
-              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              if (ctx) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+              }
             }
           }
-        } catch (err) {
+        } catch (err: any) {
           addDebugInfo(`❌ Detection error: ${err.message}`);
           console.error("Detection error:", err);
         }
@@ -345,7 +351,7 @@ export default function Home() {
       };
       
       // Store cleanup in ref for stopInterview to use
-      intervalRef.cleanup = cleanup;
+      (intervalRef as any).cleanup = cleanup;
       
       // Run first detection after a short delay
       setTimeout(() => {
@@ -353,13 +359,13 @@ export default function Home() {
         doDetection();
       }, 500);
       
-    } catch (err) {
+    } catch (err: any) {
       addDebugInfo(`❌ Failed to start detection: ${err.message}`);
       console.error("Failed to start detection:", err);
     }
   };
 
-  const scoreFromDetections = (detection) => {
+  const scoreFromDetections = (detection: any) => {
     const { expressions } = detection;
     const { 
       neutral = 0, 
@@ -429,7 +435,7 @@ export default function Home() {
     
     // Stop webcam
     if (webcamRef.current && webcamRef.current.srcObject) {
-      const stream = webcamRef.current.srcObject;
+      const stream = webcamRef.current.srcObject as MediaStream;
       stream.getTracks().forEach(track => track.stop());
       webcamRef.current.srcObject = null;
     }
@@ -483,18 +489,20 @@ export default function Home() {
           faceAPI.matchDimensions(canvas, displaySize);
           
           const ctx = canvas.getContext("2d");
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          
-          // Draw face box
-          const box = faceDetection.box;
-          ctx.strokeStyle = '#00ff00';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(box.x, box.y, box.width, box.height);
-          
-          // Draw confidence score
-          ctx.fillStyle = '#00ff00';
-          ctx.font = '16px Arial';
-          ctx.fillText(`${(faceDetection.score * 100).toFixed(1)}%`, box.x, box.y - 5);
+          if (ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw face box
+            const box = faceDetection.box;
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
+            
+            // Draw confidence score
+            ctx.fillStyle = '#00ff00';
+            ctx.font = '16px Arial';
+            ctx.fillText(`${(faceDetection.score * 100).toFixed(1)}%`, box.x, box.y - 5);
+          }
         }
       } else {
         addDebugInfo("❌ TEST FAILED: No face detected");
@@ -514,7 +522,7 @@ export default function Home() {
           addDebugInfo("❌ No face detected even with basic settings");
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       addDebugInfo(`❌ TEST ERROR: ${err.message}`);
       console.error("Test error:", err);
     }
@@ -529,8 +537,10 @@ export default function Home() {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
-      if (webcamRef.current && webcamRef.current.srcObject) {
-        const stream = webcamRef.current.srcObject;
+      // Store current webcam ref in cleanup to avoid stale closure
+      const currentWebcamRef = webcamRef.current;
+      if (currentWebcamRef && currentWebcamRef.srcObject) {
+        const stream = currentWebcamRef.srcObject as MediaStream;
         stream.getTracks().forEach(track => track.stop());
       }
     };
