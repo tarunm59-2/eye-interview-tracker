@@ -364,7 +364,7 @@ export default function Home() {
                   <p className="text-yellow-400">• Be more natural - avoid forced expressions or monotone delivery</p>
                 )}
                 {professionalismMetrics.score >= 80 && (
-                  <p className="text-green-400">• Excellent work! You're demonstrating strong professional presence</p>
+                  <p className="text-green-400">• Excellent work! You&apos;re demonstrating strong professional presence</p>
                 )}
               </div>
             </div>
@@ -391,7 +391,7 @@ export default function Home() {
 
         {!isAnalyzing && expressionHistory.length === 0 && (
           <div className="text-center mt-8 p-6 bg-slate-800 rounded-2xl">
-            <p className="text-slate-400">Click "Start Analysis" to begin your interview professionalism assessment.</p>
+            <p className="text-slate-400">Click &ldquo;Start Analysis&rdquo; to begin your interview professionalism assessment.</p>
           </div>
         )}
       </div>
