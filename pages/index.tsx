@@ -1,9 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 
-// Dynamic import for face-api.js to prevent SSR issues
-const faceapi = dynamic(() => import("face-api.js"), { ssr: false });
-
+// Only use dynamic for React components
 const Webcam = dynamic(() => import("react-webcam"), { ssr: false });
 
 export default function Home() {
@@ -32,6 +30,9 @@ export default function Home() {
         addDebugInfo("Starting to load face-api.js models...");
         
         // Import face-api.js dynamically and store reference
+        // Only import on client side
+        if (typeof window === "undefined") return;
+        
         const faceAPI = await import("face-api.js");
         faceAPIRef.current = faceAPI;
         addDebugInfo("face-api.js imported successfully");
@@ -60,9 +61,7 @@ export default function Home() {
     };
 
     // Only load models on client side
-    if (typeof window !== "undefined") {
-      loadModels();
-    }
+    loadModels();
   }, []);
 
   const startInterview = async () => {
