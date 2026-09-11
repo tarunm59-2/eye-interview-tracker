@@ -10,7 +10,13 @@ type Database = {
 };
 
 function dataFile() {
-  return process.env.DATA_FILE || path.join(process.cwd(), "data", "db.json");
+  if (process.env.DATA_FILE) {
+    return process.env.DATA_FILE;
+  }
+  if (process.env.VERCEL) {
+    return path.join("/tmp", "eye-interview-tracker", "db.json");
+  }
+  return path.join(process.cwd(), "data", "db.json");
 }
 
 let writeQueue: Promise<void> = Promise.resolve();
