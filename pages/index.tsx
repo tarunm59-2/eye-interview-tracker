@@ -2,12 +2,10 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import * as faceapi from 'face-api.js';
-
-interface ExpressionHistory {
-  expression: string;
-  confidence: number;
-  timestamp: number;
-}
+import {
+  buildExpressionReport,
+  type ExpressionSample,
+} from '@/lib/reporting/expressions';
 
 interface ProfessionalismMetrics {
   score: number;
@@ -20,8 +18,9 @@ interface ProfessionalismMetrics {
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isAnalyzingRef = useRef<boolean>(false);
   const [expression, setExpression] = useState<string>('Loading...');
-  const [expressionHistory, setExpressionHistory] = useState<ExpressionHistory[]>([]);
+  const [expressionHistory, setExpressionHistory] = useState<ExpressionSample[]>([]);
   const [professionalismMetrics, setProfessionalismMetrics] = useState<ProfessionalismMetrics>({
     score: 0,
     stability: 0,
@@ -32,7 +31,7 @@ export default function Home() {
   const [sessionStartTime] = useState<number>(Date.now());
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
 
-  const calculateProfessionalismScore = (history: ExpressionHistory[]): ProfessionalismMetrics => {
+  const calculateProfessionalismScore = (history: ExpressionSample[]): ProfessionalismMetrics => {
     if (history.length < 10) {
       return { score: 0, stability: 0, engagement: 0, composure: 0, authenticity: 0 };
     }
@@ -173,23 +172,22 @@ export default function Home() {
             const confidence = sorted[0][1];
             
             setExpression(currentExpression);
-            
-            // Add to history
+
+            if (!isAnalyzingRef.current) {
+              return;
+            }
+
             setExpressionHistory(prev => {
               const newHistory = [...prev, {
                 expression: currentExpression,
                 confidence: confidence,
                 timestamp: Date.now()
               }];
-              
-              // Keep only last 2 minutes of data
-              const filtered = newHistory.filter(h => Date.now() - h.timestamp < 120000);
-              
-              // Calculate new metrics
-              const newMetrics = calculateProfessionalismScore(filtered);
+
+              const newMetrics = calculateProfessionalismScore(newHistory);
               setProfessionalismMetrics(newMetrics);
-              
-              return filtered;
+
+              return newHistory;
             });
           }
         }, 300);
@@ -202,6 +200,7 @@ export default function Home() {
   }, []);
 
   const startAnalysis = () => {
+    isAnalyzingRef.current = true;
     setIsAnalyzing(true);
     setExpressionHistory([]);
     setProfessionalismMetrics({
@@ -213,7 +212,13 @@ export default function Home() {
     });
   };
 
+  const stopAnalysis = () => {
+    isAnalyzingRef.current = false;
+    setIsAnalyzing(false);
+  };
+
   const resetAnalysis = () => {
+    isAnalyzingRef.current = false;
     setIsAnalyzing(false);
     setExpressionHistory([]);
     setProfessionalismMetrics({
@@ -224,6 +229,8 @@ export default function Home() {
       authenticity: 0
     });
   };
+
+  const expressionReport = buildExpressionReport(expressionHistory);
 
   const sessionDuration = Math.floor((Date.now() - sessionStartTime) / 1000);
   const minutes = Math.floor(sessionDuration / 60);
@@ -276,6 +283,13 @@ export default function Home() {
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg transition-colors"
                 >
                   {isAnalyzing ? 'Analyzing...' : 'Start Analysis'}
+                </button>
+                <button
+                  onClick={stopAnalysis}
+                  disabled={!isAnalyzing}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg transition-colors"
+                >
+                  End Session
                 </button>
                 <button
                   onClick={resetAnalysis}
@@ -368,6 +382,21 @@ export default function Home() {
                 )}
               </div>
             </div>
+
+            {expressionHistory.length > 0 && (
+              <div className="bg-slate-800 rounded-2xl p-6">
+                <h3 className="text-lg font-bold mb-4">Session Report</h3>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm text-slate-300">Neutral expression or below</span>
+                  <span className="text-2xl font-bold text-blue-400">
+                    {expressionReport.neutralOrBelowCount}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-2">
+                  Counted from {expressionReport.totalSamples} captured expression samples
+                </p>
+              </div>
+            )}
 
             {/* Expression History Preview */}
             {expressionHistory.length > 0 && (
